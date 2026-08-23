@@ -154,20 +154,25 @@ def import_grid_and_terrain(replace_grid: bool = False):
             if existing:
                 logger.warning("--replace-grid requested; truncating the grid and dependent metric rows")
                 db.execute(text("TRUNCATE urban_grid_master RESTART IDENTITY CASCADE"))
-            for _, row in grid3857.iterrows():
+            for i, (_, row) in enumerate(grid3857.iterrows(), 1):
                 db.execute(
                     text(
                         "INSERT INTO urban_grid_master (geom, latitude, longitude) "
                         "VALUES (ST_SetSRID(ST_GeomFromWKB(:wkb), 3857), :lat, :lng)"
                     ),
-                    {
-                        "wkb": row.geometry.wkb,
-                        "lat": float(row["latitude"]),
-                        "lng": float(row["longitude"]),
-                    },
-                )
+            {
+                "wkb": row.geometry.wkb,
+                "lat": row.latitude,
+                "lng": row.longitude,
+            },
+        )
+
+            if i % 250 == 0:
+                db.commit()
+                logger.info("Committed %d / %d grid cells", i, len(grid3857))
+
             db.commit()
-            logger.info("Inserted %d grid cells into urban_grid_master", len(grid))
+            logger.info("Inserted %d grid cells into urban_grid_master", len(grid3857))
 
         # grid_code (DEL_00001) -> canonical db grid_id (source order is checked above)
         grid_codes = list(grid["grid_id"].astype(str))
