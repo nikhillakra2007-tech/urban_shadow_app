@@ -243,7 +243,7 @@ export function DelhiMap() {
         id: HEAT_LAYER,
         type: 'heatmap',
         source: SOURCE_ID,
-        layout: { visibility: 'none' },
+        layout: { visibility: heatOn ? 'visible' : 'none' },
         paint: {
           'heatmap-weight': [
             'interpolate',
@@ -319,7 +319,7 @@ export function DelhiMap() {
       const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource
       source.setData(data)
     }
-  }, [geojson, mapReady, colorExpression, selectGrid, isPolygons])
+  }, [geojson, mapReady, colorExpression, selectGrid, isPolygons, heatOn, min, max])
 
   /* ---------------- recolor on layer change ---------------- */
   useEffect(() => {
@@ -333,9 +333,11 @@ export function DelhiMap() {
   /* ---------------- heat map toggle ---------------- */
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !mapReady || !map.getLayer(HEAT_LAYER)) return
-    map.setLayoutProperty(HEAT_LAYER, 'visibility', heatOn ? 'visible' : 'none')
-  }, [heatOn, mapReady])
+    if (!map || !map.isStyleLoaded() || !map.getLayer(HEAT_LAYER)) return
+    if (map.getLayoutProperty(HEAT_LAYER, 'visibility') !== (heatOn ? 'visible' : 'none')) {
+      map.setLayoutProperty(HEAT_LAYER, 'visibility', heatOn ? 'visible' : 'none')
+    }
+  }, [heatOn, mapReady, geojson])
 
   /* ---------------- selection highlight + fly to ---------------- */
   useEffect(() => {
