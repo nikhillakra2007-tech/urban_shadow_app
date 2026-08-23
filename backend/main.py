@@ -118,6 +118,23 @@ def geojson():
     return gs.get_geojson()
 
 
+# ── Grid cells (polygons) ─────────────────────────────────────────────────────
+@app.get(
+    "/api/grids/cells",
+    summary="Grid cell polygons",
+    description=(
+        "All Delhi 500 m grid CELLS as polygon GeoJSON joined with scores. "
+        "Geometry: Polygon [longitude, latitude] (WGS-84). "
+        "Properties: grid_id, uus_score, classification."
+    ),
+    tags=["Grids"],
+)
+def grid_cells():
+    if gs is None:
+        raise HTTPException(503, detail=f"Dataset unavailable: {_data_error}")
+    return gs.get_cells_geojson()
+
+
 # ── Single Grid ───────────────────────────────────────────────────────────────
 @app.get(
     "/api/grids/{grid_id}",

@@ -47,6 +47,7 @@ class GridService:
         # (model itself is injected via set_model_service after init, or computed
         #  in init if passed in — see set_uus_scores method called from main.py)
         self._uus_computed = False
+        self._cells_geojson: dict | None = None
 
     def set_uus_scores(self, model_service) -> None:
         """
@@ -93,6 +94,42 @@ class GridService:
         if match.empty:
             return None
         return self._clean_record(match.iloc[0].to_dict())
+
+    def get_cells_geojson(self) -> dict:
+        """
+        Returns the 500 m grid CELLS (polygons) as a GeoJSON FeatureCollection,
+        joined with uus_score / classification by grid_id.
+
+        Geometry source: data/delhi_grid_500m.geojson (WGS-84 / CRS84, polygon
+        coordinates are [longitude, latitude]). Cells whose grid_id is not in
+        the scored dataset are skipped; scores are attached when present.
+        """
+        if self._cells_geojson is None:
+            base = os.path.dirname(os.path.dirname(__file__))
+            path = os.path.join(base, "data", "delhi_grid_500m.geojson")
+            with open(path, "r", encoding="utf-8") as fh:
+                raw = json.load(fh)
+            scores = self.df.set_index("grid_id")[["uus_score", "classification"]].to_dict(orient="index")
+            features = []
+            for feature in raw.get("features", []):
+                props = feature.get("properties", {}) or {}
+                gid = str(props.get("grid_id"))
+                row = scores.get(gid)
+                if row is None:
+                    continue
+                uus = row.get("uus_score")
+                features.append({
+                    "type": "Feature",
+                    "id": gid,
+                    "properties": {
+                        "grid_id": gid,
+                        "uus_score": None if uus is None or (isinstance(uus, float) and np.isnan(uus)) else round(float(uus), 2),
+                        "classification": row.get("classification"),
+                    },
+                    "geometry": feature.get("geometry"),
+                })
+            self._cells_geojson = {"type": "FeatureCollection", "features": features}
+        return self._cells_geojson
 
     def get_geojson(self) -> dict:
         """

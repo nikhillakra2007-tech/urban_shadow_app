@@ -80,6 +80,7 @@ export const api = {
   grids: (params?: { limit?: number; offset?: number; search?: string }) =>
     request<GridsResponse | GridRecord[]>('/api/grids', { query: params }),
   gridsGeoJson: () => request<GridGeoJson>('/api/grids/geojson'),
+  cells: () => request<GridGeoJson>('/api/grids/cells'),
   grid: (gridId: string) => request<GridRecord>(`/api/grids/${encodeURIComponent(gridId)}`),
   explanation: (gridId: string) =>
     request<ExplanationResponse>(`/api/grids/${encodeURIComponent(gridId)}/explanation`),

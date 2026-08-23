@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { pickString } from '@/lib/api'
 import { useAppState } from '@/lib/app-state'
-import { useGridsGeoJson, useScoreBounds } from '@/lib/hooks'
+import { useGridCells, useGridsGeoJson, useScoreBounds } from '@/lib/hooks'
 import type { GridFeature } from '@/lib/types'
 import { BANDS, colorStops, formatScore, humanizeFeature, resolveBand } from '@/lib/uus'
 import { ApiOfflineNotice } from '@/components/api-offline-notice'
@@ -16,8 +16,11 @@ import { MapLegend } from './map-legend'
 import { BASEMAP, DELHI_VIEW, NCR_PLACES } from './geography'
 
 const SOURCE_ID = 'uus-grids'
+const FILL_LAYER = 'uus-cells-fill'
+const OUTLINE_LAYER = 'uus-cells-outline'
 const POINT_LAYER = 'uus-points'
 const GLOW_LAYER = 'uus-glow'
+const SELECTED_FILL_LAYER = 'uus-selected-fill'
 const SELECTED_LAYER = 'uus-selected'
 
 interface HoverInfo {
@@ -75,7 +78,12 @@ export function DelhiMap() {
   const mapRef = useRef<MapLibreMap | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
-  const { data: geojson, error, isLoading, mutate } = useGridsGeoJson()
+  const { data: pointsGeojson, error: pointsError, isLoading: pointsLoading, mutate } = useGridsGeoJson()
+  const { data: cellsData } = useGridCells()
+  const geojson = cellsData?.features?.length ? cellsData : pointsGeojson
+  const isPolygons = Boolean(geojson?.features?.[0] && 'geometry' in geojson.features[0] && geojson.features[0].geometry.type === 'Polygon')
+  const error = cellsData ? undefined : pointsError
+  const isLoading = cellsData ? false : pointsLoading
   const { min, max } = useScoreBounds()
   const { selectedGridId, focusToken, activeLayer, setActiveLayer, selectGrid } = useAppState()
 
@@ -164,50 +172,93 @@ export function DelhiMap() {
     if (!map || !mapReady || !geojson?.features?.length) return
 
     const data = geojson as unknown as GeoJSON.FeatureCollection
+    const pickGridId = (props: unknown) =>
+      pickString(props as Record<string, unknown> | undefined, ['grid_id', 'gridId', 'id'])
 
     if (!map.getSource(SOURCE_ID)) {
-      map.addSource(SOURCE_ID, { type: 'geojson', data, promoteId: undefined })
+      map.addSource(SOURCE_ID, { type: 'geojson', data })
 
-      map.addLayer({
-        id: GLOW_LAYER,
-        type: 'circle',
-        source: SOURCE_ID,
-        paint: {
-          'circle-color': colorExpression,
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 3, 9, 8, 11, 16, 14, 40],
-          'circle-blur': 1.1,
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.35, 10, 0.28, 14, 0.2],
-        },
-      })
+      if (isPolygons) {
+        map.addLayer({
+          id: FILL_LAYER,
+          type: 'fill',
+          source: SOURCE_ID,
+          paint: {
+            'fill-color': colorExpression,
+            'fill-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0.85, 12, 0.55],
+          },
+        })
 
-      map.addLayer({
-        id: POINT_LAYER,
-        type: 'circle',
-        source: SOURCE_ID,
-        paint: {
-          'circle-color': colorExpression,
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 1.2, 9, 2.8, 11, 5.5, 13, 11, 15, 20],
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.75, 10, 0.9, 14, 0.95],
-          'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 10, 0, 12.5, 0.6],
-          'circle-stroke-color': '#00000055',
-        },
-      })
+        map.addLayer({
+          id: OUTLINE_LAYER,
+          type: 'line',
+          source: SOURCE_ID,
+          paint: {
+            'line-color': '#00000066',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.4, 14, 1],
+          },
+        })
+
+        map.addLayer({
+          id: SELECTED_FILL_LAYER,
+          type: 'fill',
+          source: SOURCE_ID,
+          filter: ['==', ['to-string', ['coalesce', ['get', 'grid_id'], ['get', 'id']]], '__none__'],
+          paint: {
+            'fill-color': 'rgba(0,0,0,0)',
+            'fill-outline-color': '#ffffff',
+            'fill-opacity': 1,
+          },
+        })
+      } else {
+        map.addLayer({
+          id: GLOW_LAYER,
+          type: 'circle',
+          source: SOURCE_ID,
+          paint: {
+            'circle-color': colorExpression,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 3, 9, 8, 11, 16, 14, 40],
+            'circle-blur': 1.1,
+            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.35, 10, 0.28, 14, 0.2],
+          },
+        })
+
+        map.addLayer({
+          id: POINT_LAYER,
+          type: 'circle',
+          source: SOURCE_ID,
+          paint: {
+            'circle-color': colorExpression,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 1.2, 9, 2.8, 11, 5.5, 13, 11, 15, 20],
+            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.75, 10, 0.9, 14, 0.95],
+            'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 10, 0, 12.5, 0.6],
+            'circle-stroke-color': '#00000055',
+          },
+        })
+      }
 
       map.addLayer({
         id: SELECTED_LAYER,
-        type: 'circle',
+        type: isPolygons ? 'line' : 'circle',
         source: SOURCE_ID,
         filter: ['==', ['to-string', ['coalesce', ['get', 'grid_id'], ['get', 'id']]], '__none__'],
-        paint: {
-          'circle-color': 'rgba(0,0,0,0)',
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 9, 12, 18, 15, 30],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 1,
-        },
+        paint: isPolygons
+          ? {
+              'line-color': '#ffffff',
+              'line-width': 2,
+            }
+          : {
+              'circle-color': 'rgba(0,0,0,0)',
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 9, 12, 18, 15, 30],
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff',
+              'circle-opacity': 1,
+            },
       })
 
-      map.on('mousemove', POINT_LAYER, (event) => {
+      const hitLayer = isPolygons ? FILL_LAYER : POINT_LAYER
+
+      map.on('mousemove', hitLayer, (event) => {
         const feature = event.features?.[0]
         if (!feature) return
         map.getCanvas().style.cursor = 'pointer'
@@ -222,39 +273,42 @@ export function DelhiMap() {
         })
       })
 
-      map.on('mouseleave', POINT_LAYER, () => {
+      map.on('mouseleave', hitLayer, () => {
         map.getCanvas().style.cursor = ''
         setHover(null)
       })
 
-      map.on('click', POINT_LAYER, (event) => {
+      map.on('click', hitLayer, (event) => {
         const feature = event.features?.[0]
-        const gridId = pickString(feature?.properties as Record<string, unknown> | undefined, ['grid_id', 'gridId', 'id'])
+        const gridId = pickGridId(feature?.properties)
         if (gridId) selectGrid(gridId)
       })
     } else {
       const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource
       source.setData(data)
     }
-  }, [geojson, mapReady, colorExpression, selectGrid])
+  }, [geojson, mapReady, colorExpression, selectGrid, isPolygons])
 
   /* ---------------- recolor on layer change ---------------- */
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !mapReady || !map.getLayer(POINT_LAYER)) return
-    map.setPaintProperty(POINT_LAYER, 'circle-color', colorExpression)
-    map.setPaintProperty(GLOW_LAYER, 'circle-color', colorExpression)
+    if (!map || !mapReady) return
+    if (map.getLayer(POINT_LAYER)) map.setPaintProperty(POINT_LAYER, 'circle-color', colorExpression)
+    if (map.getLayer(GLOW_LAYER)) map.setPaintProperty(GLOW_LAYER, 'circle-color', colorExpression)
+    if (map.getLayer(FILL_LAYER)) map.setPaintProperty(FILL_LAYER, 'fill-color', colorExpression)
   }, [colorExpression, mapReady])
 
   /* ---------------- selection highlight + fly to ---------------- */
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !mapReady || !map.getLayer(SELECTED_LAYER)) return
-    map.setFilter(SELECTED_LAYER, [
+    if (!map || !mapReady) return
+    const filter = [
       '==',
       ['to-string', ['coalesce', ['get', 'grid_id'], ['get', 'id']]],
       selectedGridId ?? '__none__',
-    ])
+    ] as maplibregl.FilterSpecification
+    if (map.getLayer(SELECTED_LAYER)) map.setFilter(SELECTED_LAYER, filter)
+    if (map.getLayer(SELECTED_FILL_LAYER)) map.setFilter(SELECTED_FILL_LAYER, filter)
   }, [selectedGridId, mapReady])
 
   useEffect(() => {

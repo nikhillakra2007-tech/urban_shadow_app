@@ -42,6 +42,15 @@ export function useGridsGeoJson() {
   })
 }
 
+/** Polygon grid cells (500 m), preferred over centroid points when available. */
+export function useGridCells() {
+  return useSWR<GridGeoJson>('grids-cells', api.cells, {
+    ...commonConfig,
+    revalidateIfStale: false,
+    revalidateOnReconnect: false,
+  })
+}
+
 export function useGrid(gridId: string | null) {
   return useSWR<GridRecord>(gridId ? ['grid', gridId] : null, () => api.grid(gridId as string), commonConfig)
 }

@@ -14,6 +14,7 @@ import { useGrid, useScoreBounds } from '@/lib/hooks'
 import { extractIndicators, resolveBand } from '@/lib/uus'
 import { AiSuggestions } from './ai-suggestions'
 import { ExplanationSection } from './explanation-section'
+import { GridProfilePie } from './grid-profile-pie'
 import { IndicatorList } from './indicator-list'
 import { ScoreRing } from './score-ring'
 import { WhatIfDialog } from './what-if-dialog'
@@ -138,6 +139,12 @@ export function GridDetailPanel({ autoAi = false, autoWhatIf = false }: GridDeta
                   </Badge>
                 )}
               </div>
+
+              <Separator />
+
+              <Section title="Indicator profile">
+                <GridProfilePie grid={grid} />
+              </Section>
 
               <Separator />
 
