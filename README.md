@@ -60,6 +60,17 @@ row set matches the original 500 m Delhi grid exactly.
 
 ## Run locally (PowerShell)
 
+### Quick start (recommended)
+
+```powershell
+cd C:\Users\nikhi\OneDrive\Desktop\coding\urban
+powershell -ExecutionPolicy Bypass -File .\run_local.ps1
+```
+
+This creates the venv on first run, starts backend + frontend, waits until both
+are healthy, and opens the browser at http://localhost:3000.
+Add `-Prod` for a production build/start instead of dev mode.
+
 ### 1. Backend
 
 ```powershell
