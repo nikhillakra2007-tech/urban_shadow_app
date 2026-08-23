@@ -53,16 +53,32 @@ class GridService:
         """
         Compute UUS scores for all grids using the actual trained model.
         Called once at startup from main.py after both services are initialized.
+
+        The delivered artifact was trained on an unknown target scale (the
+        training script was not part of the handoff), so raw predictions are
+        stretched LINEARLY onto a 0-100 display scale:
+            score_100 = (raw - min) / (max - min) * 100
+        This preserves ranking order and all relative differences exactly;
+        only the displayed numbers change.
         """
         X = self.df[self._model_features].astype(float)
-        preds = model_service.model.predict(X)
-        self.df["uus_score"] = preds.astype(float)
-        self._score_min = float(self.df["uus_score"].min())
-        self._score_max = float(self.df["uus_score"].max())
+        preds = np.asarray(model_service.model.predict(X), dtype=float)
+        self._raw_min = float(np.min(preds))
+        self._raw_max = float(np.max(preds))
+        raw_span = (self._raw_max - self._raw_min) or 1.0
+
+        self.df["uus_score"] = (preds - self._raw_min) / raw_span * 100.0
+        self._score_min = 0.0
+        self._score_max = 100.0
         self.df["classification"] = self.df["uus_score"].apply(
             lambda s: classify_uus(float(s), self._score_min, self._score_max)
         )
         self._uus_computed = True
+
+    def to_display_score(self, raw_score: float) -> float:
+        """Map one RAW model output onto the same 0-100 display scale."""
+        raw_span = (getattr(self, "_raw_max", 0.0) - getattr(self, "_raw_min", 0.0)) or 1.0
+        return float((raw_score - getattr(self, "_raw_min", 0.0)) / raw_span * 100.0)
 
     def _clean_record(self, record: dict) -> dict:
         """Replace NaN / Inf with None so JSON serialization never breaks."""

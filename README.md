@@ -50,12 +50,13 @@ row set matches the original 500 m Delhi grid exactly.
 
 ## Score & classification
 
-- `uus_score` = raw prediction of the delivered `XGBRegressor`
-  (100 trees, depth 6). The training script was not part of the handoff, so
-  the score lives on the model's trained scale — the UI scales colour bands
-  against the real observed min/max from `/api/overview`.
+- `uus_score` = prediction of the delivered `XGBRegressor` (100 trees, depth 6).
+  The training script was not part of the handoff, so raw model outputs are
+  stretched **linearly** onto a **0–100 display scale**
+  (`(raw − min) / (max − min) × 100`) at startup. This preserves ranking order
+  and all relative differences exactly — only the displayed numbers change.
 - Classification tiers (`Critical / Low / Moderate / Good / Excellent`) use
-  equal quintiles of the observed range — the same rule the frontend applies
+  equal quintiles of the 0–100 range — the same rule the frontend applies
   (`frontend/lib/uus.ts -> bandForScore`).
 
 ## Run locally (PowerShell)

@@ -50,28 +50,27 @@ class SimulationEngine:
             baseline_df[feat] = float(val)
             applied[feat] = float(val)
 
-        # 6. Baseline prediction (model re-predicts from stored feature values)
+        # 6. Baseline prediction (model re-predicts from stored feature values,
+        #    mapped onto the same 0-100 display scale as the stored scores)
         baseline_only_df = pd.DataFrame([grid_data])
         try:
-            baseline_uus = float(self.ms.predict(baseline_only_df))
+            baseline_uus = self.gs.to_display_score(float(self.ms.predict(baseline_only_df)))
         except Exception:
             # Fall back to stored score if model prediction fails for some reason
             baseline_uus = float(grid_data.get("uus_score", 0))
 
         # 7. Simulated prediction with applied changes
-        simulated_uus = float(self.ms.predict(baseline_df))
+        simulated_uus = self.gs.to_display_score(float(self.ms.predict(baseline_df)))
 
         stored_uus = float(grid_data.get("uus_score", 0))
 
         # 8. Discrepancy note (model re-prediction vs stored score)
         discrepancy = round(abs(baseline_uus - stored_uus), 4)
         discrepancy_note = None
-        if discrepancy > 0.01:
+        if discrepancy > 0.05:
             discrepancy_note = (
                 f"The model re-predicts {baseline_uus:.4f} for this grid, while the stored "
-                f"uus_score is {stored_uus:.4f} (difference: {discrepancy:.4f}). "
-                "Both values were computed using the same model and feature set at startup; "
-                "minor floating-point differences from batch vs. single-row prediction are expected."
+                f"uus_score is {stored_uus:.4f} (difference: {discrepancy:.4f})."
             )
 
         return {
