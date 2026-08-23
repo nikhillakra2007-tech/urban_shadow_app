@@ -1,7 +1,15 @@
 'use client'
 
-import * as maplibregl from 'maplibre-gl'
-import { type ExpressionSpecification, Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl'
+/**
+ * MapLibre is loaded at runtime from /vendor (self-hosted copies of the npm
+ * dist files) via a native dynamic import. The bundled import breaks in the
+ * Turbopack production build: the maplibre worker chunk never loads and every
+ * GeoJSON source silently indexes zero features. Served from /public, the
+ * worker resolves same-origin and works untouched by the bundler.
+ * Types still come from the npm package.
+ */
+import { type ExpressionSpecification, type FilterSpecification, type GeoJSONSource, Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl'
+import type * as MapLibreNS from 'maplibre-gl'
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -23,6 +31,19 @@ const POINT_LAYER = 'uus-points'
 const GLOW_LAYER = 'uus-glow'
 const SELECTED_FILL_LAYER = 'uus-selected-fill'
 const SELECTED_LAYER = 'uus-selected'
+
+/** Keep in sync with the maplibre-gl entry in package.json. */
+const MAPLIBRE_URL = '/vendor/maplibre-gl.mjs'
+
+let maplibreLoadPromise: Promise<typeof MapLibreNS> | null = null
+function loadMaplibre(): Promise<typeof MapLibreNS> {
+  if (!maplibreLoadPromise) {
+    maplibreLoadPromise = import(
+      /* webpackIgnore: true */ /* turbopackIgnore: true */ MAPLIBRE_URL
+    ).then((ns) => ns as unknown as typeof MapLibreNS)
+  }
+  return maplibreLoadPromise
+}
 
 interface HoverInfo {
   x: number
@@ -136,10 +157,23 @@ export function DelhiMap() {
     ] as ExpressionSpecification
   }, [activeLayer, layerRange])
 
-  /* ---------------- map init ---------------- */
+  /* ---------------- map init (waits for CDN MapLibre) ---------------- */
+  const [ml, setMl] = useState<typeof MapLibreNS | null>(null)
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
-    const map = new maplibregl.Map({
+    let cancelled = false
+    loadMaplibre()
+      .then((ns) => {
+        if (!cancelled) setMl(ns)
+      })
+      .catch((e) => console.error('maplibre load:', e))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!ml || !containerRef.current || mapRef.current) return
+    const map = new ml.Map({
       container: containerRef.current,
       style: baseStyle(),
       center: DELHI_VIEW.center,
@@ -154,7 +188,7 @@ export function DelhiMap() {
 
     map.on('load', () => {
       for (const place of NCR_PLACES) {
-        new maplibregl.Marker({ element: labelMarkerElement(place.name, place.kind), anchor: 'center' })
+        new ml.Marker({ element: labelMarkerElement(place.name, place.kind), anchor: 'center' })
           .setLngLat(place.coordinates)
           .addTo(map)
       }
@@ -166,7 +200,7 @@ export function DelhiMap() {
       mapRef.current = null
       setMapReady(false)
     }
-  }, [])
+  }, [ml])
 
   /* ---------------- data layers ---------------- */
   useEffect(() => {
@@ -316,7 +350,7 @@ export function DelhiMap() {
         if (gridId) selectGrid(gridId)
       })
     } else {
-      const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource
+      const source = map.getSource(SOURCE_ID) as GeoJSONSource
       source.setData(data)
     }
   }, [geojson, mapReady, colorExpression, selectGrid, isPolygons, heatOn, min, max])
@@ -347,7 +381,7 @@ export function DelhiMap() {
       '==',
       ['to-string', ['coalesce', ['get', 'grid_id'], ['get', 'id']]],
       selectedGridId ?? '__none__',
-    ] as maplibregl.FilterSpecification
+    ] as FilterSpecification
     if (map.getLayer(SELECTED_LAYER)) map.setFilter(SELECTED_LAYER, filter)
     if (map.getLayer(SELECTED_FILL_LAYER)) map.setFilter(SELECTED_FILL_LAYER, filter)
   }, [selectedGridId, mapReady])
