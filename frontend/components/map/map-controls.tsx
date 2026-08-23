@@ -1,6 +1,6 @@
 'use client'
 
-import { Crosshair, Layers, Maximize2, Minus, Plus, RotateCcw } from 'lucide-react'
+import { Crosshair, Flame, Layers, Maximize2, Minus, Plus, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { humanizeFeature } from '@/lib/uus'
@@ -15,6 +15,8 @@ interface MapControlsProps {
   layers: string[]
   activeLayer: string
   onLayerChange: (layer: string) => void
+  showHeatmap?: boolean
+  onToggleHeatmap?: () => void
 }
 
 function ControlButton({
@@ -59,6 +61,8 @@ export function MapControls({
   layers,
   activeLayer,
   onLayerChange,
+  showHeatmap,
+  onToggleHeatmap,
 }: MapControlsProps) {
   const [layerOpen, setLayerOpen] = useState(false)
 
@@ -80,6 +84,15 @@ export function MapControls({
         <ControlButton label="Fullscreen" onClick={onFullscreen}>
           <Maximize2 className="size-4" aria-hidden />
         </ControlButton>
+        {onToggleHeatmap && (
+          <ControlButton
+            label={showHeatmap ? 'Hide heat map' : 'Show heat map'}
+            onClick={onToggleHeatmap}
+            active={showHeatmap}
+          >
+            <Flame className="size-4" aria-hidden />
+          </ControlButton>
+        )}
         {layers.length > 1 && (
           <ControlButton label="Map layers" onClick={() => setLayerOpen((open) => !open)} active={layerOpen}>
             <Layers className="size-4" aria-hidden />

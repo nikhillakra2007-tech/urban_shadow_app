@@ -18,6 +18,7 @@ import { BASEMAP, DELHI_VIEW, NCR_PLACES } from './geography'
 const SOURCE_ID = 'uus-grids'
 const FILL_LAYER = 'uus-cells-fill'
 const OUTLINE_LAYER = 'uus-cells-outline'
+const HEAT_LAYER = 'uus-heatmap'
 const POINT_LAYER = 'uus-points'
 const GLOW_LAYER = 'uus-glow'
 const SELECTED_FILL_LAYER = 'uus-selected-fill'
@@ -78,6 +79,7 @@ export function DelhiMap() {
   const mapRef = useRef<MapLibreMap | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
+  const [heatOn, setHeatOn] = useState(true)
   const { data: pointsGeojson, error: pointsError, isLoading: pointsLoading, mutate } = useGridsGeoJson()
   const { data: cellsData } = useGridCells()
   const geojson = cellsData?.features?.length ? cellsData : pointsGeojson
@@ -238,6 +240,36 @@ export function DelhiMap() {
       }
 
       map.addLayer({
+        id: HEAT_LAYER,
+        type: 'heatmap',
+        source: SOURCE_ID,
+        layout: { visibility: 'none' },
+        paint: {
+          'heatmap-weight': [
+            'interpolate',
+            ['linear'],
+            ['to-number', ['coalesce', ['get', 'uus_score'], 0]],
+            Math.min(min, max), 0,
+            Math.max(min, max) === Math.min(min, max) ? Math.min(min, max) + 1 : max, 1,
+          ],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 13, 2.2],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0, 'rgba(229, 72, 77, 0)',
+            0.15, '#e5484d',
+            0.35, '#f2820a',
+            0.55, '#e9c412',
+            0.75, '#5ec26a',
+            1, '#1fc48b',
+          ],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 7, 12, 10, 26, 14, 55],
+          'heatmap-opacity': 0.72,
+        },
+      })
+
+      map.addLayer({
         id: SELECTED_LAYER,
         type: isPolygons ? 'line' : 'circle',
         source: SOURCE_ID,
@@ -297,6 +329,13 @@ export function DelhiMap() {
     if (map.getLayer(GLOW_LAYER)) map.setPaintProperty(GLOW_LAYER, 'circle-color', colorExpression)
     if (map.getLayer(FILL_LAYER)) map.setPaintProperty(FILL_LAYER, 'fill-color', colorExpression)
   }, [colorExpression, mapReady])
+
+  /* ---------------- heat map toggle ---------------- */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady || !map.getLayer(HEAT_LAYER)) return
+    map.setLayoutProperty(HEAT_LAYER, 'visibility', heatOn ? 'visible' : 'none')
+  }, [heatOn, mapReady])
 
   /* ---------------- selection highlight + fly to ---------------- */
   useEffect(() => {
@@ -364,6 +403,8 @@ export function DelhiMap() {
         layers={availableLayers}
         activeLayer={activeLayer}
         onLayerChange={setActiveLayer}
+        showHeatmap={heatOn}
+        onToggleHeatmap={() => setHeatOn((on) => !on)}
       />
 
       <MapLegend
