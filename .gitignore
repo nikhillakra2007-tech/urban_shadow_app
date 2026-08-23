@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/models/
+*.egg-info/
+.pytest_cache/
+*.log
+*.pid
+urban_shadow_dump.sql
+
+data/raw/
