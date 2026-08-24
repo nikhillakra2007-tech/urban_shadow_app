@@ -1,3 +1,7 @@
+## 🌐 Live Demo
+
+[🚀 Open Urban Shadow](https://urban-shadow-frontend.onrender.com)
+
 # urban_shadow
 
 FastAPI platform that scores every 500m × 500m grid cell of NCT Delhi for **urban usability**. Normalized schema: `urban_grid_master` (GRID hub) + **one table per metric group**, all linked by `grid_id`.
