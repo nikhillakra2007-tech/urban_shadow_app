@@ -21,10 +21,19 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+# Allow both local development and the deployed Render frontend.
 origins = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+    ",".join([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://urban-shadow-frontend.onrender.com",
+    ]),
 ).split(",")
+
+origins = [origin.strip().rstrip("/") for origin in origins if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -151,7 +160,7 @@ def get_grid(grid_id: str):
     return res
 
 
-# ── Grid Explanation ──────────────────────────────────────────────────────────
+# ── Grid Explanation ─────────────────────────────────────────────────────────
 @app.get(
     "/api/grids/{grid_id}/explanation",
     summary="Grid score explanation",
@@ -167,10 +176,14 @@ def explain_grid(grid_id: str):
         raise HTTPException(503, detail=f"Dataset unavailable: {_data_error}")
     if ms is None:
         raise HTTPException(503, detail=f"Model unavailable: {_model_error}")
+
     grid = gs.get_grid(grid_id)
+
     if not grid:
         raise HTTPException(404, detail=f"Grid '{grid_id}' not found.")
+
     importances = ms.get_feature_importances()
+
     return {
         "grid_id": grid_id,
         "uus_score": grid.get("uus_score"),
@@ -185,7 +198,7 @@ def explain_grid(grid_id: str):
     }
 
 
-# ── Rankings ──────────────────────────────────────────────────────────────────
+# ── Rankings ─────────────────────────────────────────────────────────────────
 @app.get(
     "/api/rankings",
     summary="Top and bottom grids by UUS score",
@@ -198,7 +211,7 @@ def rankings(limit: int = 10):
     return ans.get_rankings(limit=limit)
 
 
-# ── Analytics ─────────────────────────────────────────────────────────────────
+# ── Analytics ────────────────────────────────────────────────────────────────
 @app.get(
     "/api/analytics",
     summary="Full analytics report",
@@ -208,11 +221,13 @@ def rankings(limit: int = 10):
 def analytics():
     if ans is None:
         raise HTTPException(503, detail=f"Service unavailable: {_data_error or _model_error}")
+
     fi = ms.get_feature_importances() if ms is not None else {}
+
     return ans.get_analytics(feature_importances=fi)
 
 
-# ── AI Suggestions ────────────────────────────────────────────────────────────
+# ── AI Suggestions ───────────────────────────────────────────────────────────
 @app.post(
     "/api/ai-suggestions",
     summary="Data-driven improvement suggestions",
@@ -224,16 +239,23 @@ def analytics():
 )
 def ai_suggestions(body: dict = Body(..., examples=[{"grid_id": "DEL_00001"}])):
     grid_id = body.get("grid_id")
+
     if not grid_id:
         raise HTTPException(422, detail="Request body must include 'grid_id'.")
+
     if rec is None:
         raise HTTPException(503, detail="Recommendation service unavailable.")
+
     if gs is None:
         raise HTTPException(503, detail=f"Dataset unavailable: {_data_error}")
+
     grid = gs.get_grid(str(grid_id))
+
     if not grid:
         raise HTTPException(404, detail=f"Grid '{grid_id}' not found.")
+
     suggestions = rec.get_suggestions(str(grid_id))
+
     return {
         "grid_id": grid_id,
         "uus_score": grid.get("uus_score"),
@@ -246,7 +268,7 @@ def ai_suggestions(body: dict = Body(..., examples=[{"grid_id": "DEL_00001"}])):
     }
 
 
-# ── What-If Simulation ────────────────────────────────────────────────────────
+# ── What-If Simulation ───────────────────────────────────────────────────────
 @app.post(
     "/api/simulate",
     summary="What-if simulation",
@@ -260,7 +282,9 @@ def ai_suggestions(body: dict = Body(..., examples=[{"grid_id": "DEL_00001"}])):
 def simulate(req: SimulationRequest):
     if sim is None:
         raise HTTPException(503, detail="Simulation service unavailable.")
+
     result = sim.run(req.grid_id, req.changes)
+
     if not result.get("supported", True):
         raise HTTPException(
             422,
@@ -269,9 +293,15 @@ def simulate(req: SimulationRequest):
                 "unsupported_changes": result.get("unsupported_changes", []),
             },
         )
+
     return result
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8000")),
+    )
