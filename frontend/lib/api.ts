@@ -24,7 +24,7 @@ import type {
  * Local development: frontend/.env.local -> http://localhost:8000
  */
 export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://urban-shadow-backend.onrender.com'
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://urban-shadow-api.onrender.com'
 ).replace(/\/$/, '')
 
 export class ApiError extends Error {
