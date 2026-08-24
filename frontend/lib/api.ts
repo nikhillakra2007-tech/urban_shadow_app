@@ -16,7 +16,16 @@ import type {
   SimulateResponse,
 } from './types'
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
+/**
+ * API base URL resolution order:
+ *   1. NEXT_PUBLIC_API_URL at build time (set in .env.local for local dev,
+ *      or in the hosting dashboard for production deployments).
+ *   2. Falls back to the deployed Render backend.
+ * Local development: frontend/.env.local -> http://localhost:8000
+ */
+export const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://urban-shadow-backend.onrender.com'
+).replace(/\/$/, '')
 
 export class ApiError extends Error {
   status: number

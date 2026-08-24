@@ -100,7 +100,7 @@ export function DelhiMap() {
   const mapRef = useRef<MapLibreMap | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
-  const [heatOn, setHeatOn] = useState(true)
+  const [heatOn, setHeatOn] = useState(false)
   const { data: pointsGeojson, error: pointsError, isLoading: pointsLoading, mutate } = useGridsGeoJson()
   const { data: cellsData } = useGridCells()
   const geojson = cellsData?.features?.length ? cellsData : pointsGeojson
@@ -149,6 +149,10 @@ export function DelhiMap() {
       activeLayer === 'uus_score'
         ? ['coalesce', ['get', 'uus_score'], ['get', 'uus'], ['get', 'score'], 0]
         : ['coalesce', ['get', activeLayer], 0]
+
+    // Continuous sequential scale stretched over the ACTUAL score range
+    // reported by the API (16–83), so low/mid/high scores are clearly
+    // distinct instead of collapsing into one mostly-green hue.
     return [
       'interpolate',
       ['linear'],

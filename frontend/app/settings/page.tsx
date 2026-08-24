@@ -15,7 +15,7 @@ export default function SettingsPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             API endpoint:{' '}
             <code className="font-mono text-xs text-primary">
-              {process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}
+              {process.env.NEXT_PUBLIC_API_URL ?? 'https://urban-shadow-backend.onrender.com'}
             </code>
           </p>
         </div>

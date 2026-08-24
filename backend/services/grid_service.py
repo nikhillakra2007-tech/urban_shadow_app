@@ -3,6 +3,11 @@ import numpy as np
 import os
 import json
 
+# Fixed display range for UUS scores (project requirement): every score the
+# API serves is linearly mapped into [16, 83].
+SCORE_MIN = 16.0
+SCORE_MAX = 83.0
+
 
 def classify_uus(score: float, score_min: float = 0.0, score_max: float = 100.0) -> str:
     """Map a UUS score to its human-readable classification tier.
@@ -56,8 +61,8 @@ class GridService:
 
         The delivered artifact was trained on an unknown target scale (the
         training script was not part of the handoff), so raw predictions are
-        stretched LINEARLY onto a 0-100 display scale:
-            score_100 = (raw - min) / (max - min) * 100
+        stretched LINEARLY onto the fixed display range [16, 83]:
+            score = 16 + (raw - min) / (max - min) * (83 - 16)
         This preserves ranking order and all relative differences exactly;
         only the displayed numbers change.
         """
@@ -67,18 +72,18 @@ class GridService:
         self._raw_max = float(np.max(preds))
         raw_span = (self._raw_max - self._raw_min) or 1.0
 
-        self.df["uus_score"] = (preds - self._raw_min) / raw_span * 100.0
-        self._score_min = 0.0
-        self._score_max = 100.0
+        self.df["uus_score"] = SCORE_MIN + (preds - self._raw_min) / raw_span * (SCORE_MAX - SCORE_MIN)
+        self._score_min = SCORE_MIN
+        self._score_max = SCORE_MAX
         self.df["classification"] = self.df["uus_score"].apply(
             lambda s: classify_uus(float(s), self._score_min, self._score_max)
         )
         self._uus_computed = True
 
     def to_display_score(self, raw_score: float) -> float:
-        """Map one RAW model output onto the same 0-100 display scale."""
+        """Map one RAW model output onto the same [16, 83] display scale."""
         raw_span = (getattr(self, "_raw_max", 0.0) - getattr(self, "_raw_min", 0.0)) or 1.0
-        return float((raw_score - getattr(self, "_raw_min", 0.0)) / raw_span * 100.0)
+        return float(SCORE_MIN + (raw_score - getattr(self, "_raw_min", 0.0)) / raw_span * (SCORE_MAX - SCORE_MIN))
 
     def _clean_record(self, record: dict) -> dict:
         """Replace NaN / Inf with None so JSON serialization never breaks."""

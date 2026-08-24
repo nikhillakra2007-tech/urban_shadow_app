@@ -32,7 +32,7 @@ export function MapLegend({ min, max, title, showBands = true }: MapLegendProps)
         </ul>
       )}
       <p className="mt-2 text-[0.65rem] leading-relaxed text-muted-foreground/70">
-        Colour scale spans the actual value range reported by the API.
+        Colour scale spans the actual score range reported by the API.
       </p>
     </figure>
   )
