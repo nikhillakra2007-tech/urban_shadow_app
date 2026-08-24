@@ -21,7 +21,7 @@ import { BANDS, colorStops, formatScore, humanizeFeature, resolveBand } from '@/
 import { ApiOfflineNotice } from '@/components/api-offline-notice'
 import { MapControls } from './map-controls'
 import { MapLegend } from './map-legend'
-import { BASEMAP, DELHI_VIEW, NCR_PLACES } from './geography'
+import { BASEMAP, DELHI_VIEW } from './geography'
 
 const SOURCE_ID = 'uus-grids'
 const FILL_LAYER = 'uus-cells-fill'
@@ -67,32 +67,15 @@ function baseStyle(): StyleSpecification {
       },
     },
     layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': '#070a11' } },
+      { id: 'background', type: 'background', paint: { 'background-color': '#E5E7EB' } },
       {
         id: 'basemap',
         type: 'raster',
         source: 'basemap',
-        paint: { 'raster-opacity': 0.9, 'raster-saturation': -0.2, 'raster-contrast': 0.08 },
+        paint: { 'raster-opacity': 1, 'raster-saturation': -0.1 },
       },
     ],
   }
-}
-
-function labelMarkerElement(name: string, kind: 'focus' | 'state' | 'city') {
-  const element = document.createElement('div')
-  element.setAttribute('aria-hidden', 'true')
-  if (kind === 'focus') {
-    element.className =
-      'pointer-events-none font-mono text-[0.78rem] font-semibold tracking-[0.34em] text-white/95 [text-shadow:0_1px_10px_rgba(0,0,0,0.9)]'
-  } else if (kind === 'state') {
-    element.className =
-      'pointer-events-none font-mono text-[0.6rem] tracking-[0.3em] text-white/32 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]'
-  } else {
-    element.className =
-      'pointer-events-none text-[0.65rem] tracking-wide text-white/48 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]'
-  }
-  element.textContent = name
-  return element
 }
 
 export function DelhiMap() {
@@ -191,11 +174,9 @@ export function DelhiMap() {
     mapRef.current = map
 
     map.on('load', () => {
-      for (const place of NCR_PLACES) {
-        new ml.Marker({ element: labelMarkerElement(place.name, place.kind), anchor: 'center' })
-          .setLngLat(place.coordinates)
-          .addTo(map)
-      }
+      // Locality labels come from the basemap's native tile labels
+      // (CARTO Positron) — no custom label markers are added, so each
+      // place name appears exactly once.
       setMapReady(true)
     })
 
@@ -339,7 +320,7 @@ export function DelhiMap() {
           gridId: pickString(properties, ['grid_id', 'gridId', 'id']),
           score: typeof properties?.uus_score === 'number' ? properties.uus_score : undefined,
           classification: pickString(properties, ['classification', 'class', 'category']),
-          place: pickString(properties, ['locality', 'area', 'name', 'ward', 'district', 'zone']),
+          place: pickString(properties, ['area_name', 'locality', 'area', 'name', 'ward', 'district', 'zone']),
         })
       })
 
@@ -413,16 +394,16 @@ export function DelhiMap() {
   const hoverBand = hover ? resolveBand(hover.score, hover.classification, min, max) : BANDS[2]
 
   return (
-    <div className="relative size-full overflow-hidden rounded-xl border border-hairline bg-[#070a11]">
+    <div className="relative size-full overflow-hidden rounded-xl border border-hairline bg-[#E5E7EB]">
       <div ref={containerRef} className="size-full" role="application" aria-label="Delhi UUS intelligence map" />
 
       {/* map title */}
       <div className="pointer-events-none absolute top-3 left-3 z-10 flex flex-col gap-1">
         <span className="text-mono-label text-primary/80">Delhi NCR · Spatial Intelligence</span>
-        <span className="text-sm font-medium text-foreground/90">
+        <span className="text-sm font-medium text-slate-800">
           {activeLayer === 'uus_score' ? 'UUS Score' : humanizeFeature(activeLayer)}
           {geojson?.features?.length ? (
-            <span className="ml-2 font-mono text-[0.7rem] text-muted-foreground">
+            <span className="ml-2 font-mono text-[0.7rem] text-slate-500">
               {geojson.features.length.toLocaleString('en-IN')} grids
             </span>
           ) : null}

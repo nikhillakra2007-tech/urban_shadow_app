@@ -23,12 +23,13 @@ class AnalyticsService:
 
     def get_rankings(self, limit: int = 10) -> dict:
         df = self.gs.df
+        cols = ["grid_id", "area_name", "uus_score", "classification"]
         top = (
-            df.nlargest(limit, "uus_score")[["grid_id", "uus_score", "classification"]]
+            df.nlargest(limit, "uus_score")[cols]
             .to_dict(orient="records")
         )
         bottom = (
-            df.nsmallest(limit, "uus_score")[["grid_id", "uus_score", "classification"]]
+            df.nsmallest(limit, "uus_score")[cols]
             .to_dict(orient="records")
         )
         return {"top_grids": top, "bottom_grids": bottom}
@@ -66,8 +67,9 @@ class AnalyticsService:
             }
 
         # Top and bottom 5 grids
-        top5 = df.nlargest(5, "uus_score")[["grid_id", "uus_score", "classification"]].to_dict(orient="records")
-        bot5 = df.nsmallest(5, "uus_score")[["grid_id", "uus_score", "classification"]].to_dict(orient="records")
+        cols = ["grid_id", "area_name", "uus_score", "classification"]
+        top5 = df.nlargest(5, "uus_score")[cols].to_dict(orient="records")
+        bot5 = df.nsmallest(5, "uus_score")[cols].to_dict(orient="records")
 
         return {
             "total_grids": int(len(df)),

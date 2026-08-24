@@ -139,7 +139,12 @@ export function RankingsView() {
                       <span className="font-mono text-xs text-muted-foreground">{String(idx + 1).padStart(2, '0')}</span>
                     )}
                   </span>
-                  <span className="font-mono text-sm text-foreground">{gridId}</span>
+                  <span className="font-mono text-sm text-foreground flex flex-col min-w-0">
+                    <span className="truncate">{gridId}</span>
+                    {typeof grid.area_name === 'string' && grid.area_name && (
+                      <span className="text-[0.62rem] font-sans text-muted-foreground truncate">{grid.area_name}</span>
+                    )}
+                  </span>
                   <span className="text-xs" style={{ color: band.hex }}>{cls ?? '—'}</span>
                   <span className="font-mono text-sm tabular-nums font-semibold" style={{ color: band.hex }}>
                     {formatScore(score)}

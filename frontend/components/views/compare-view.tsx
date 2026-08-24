@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Columns3, MapPin, Search, X, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { pickString, pickNumber, pickArray } from '@/lib/api'
+import { pickString, pickNumber, pickArray, placeOf } from '@/lib/api'
 import { useGridsGeoJson, useGrid, useScoreBounds } from '@/lib/hooks'
 import { formatScore, formatNumber, resolveBand, extractIndicators } from '@/lib/uus'
 import { useAppState } from '@/lib/app-state'
@@ -25,6 +25,7 @@ function GridCard({
   const { min, max } = useScoreBounds()
   const score = pickNumber(grid, ['uus_score', 'uus', 'score'])
   const cls = pickString(grid, ['classification', 'class', 'category'])
+  const area = placeOf(grid)
   const band = resolveBand(score, cls, min, max)
   const { selectGrid } = useAppState()
   const router = useRouter()
@@ -46,6 +47,7 @@ function GridCard({
         <div className="flex flex-col gap-0.5 min-w-0">
           <span className="text-mono-label text-muted-foreground">Grid</span>
           <span className="font-mono text-sm font-medium text-foreground truncate">{gridId}</span>
+          {area && <span className="text-[0.65rem] text-muted-foreground truncate">{area}</span>}
         </div>
         <div className="flex gap-1">
           <button

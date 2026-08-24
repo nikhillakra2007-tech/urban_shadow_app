@@ -11,7 +11,7 @@ import { OverviewView } from './overview-view'
 const DelhiMap = dynamic(() => import('@/components/map/delhi-map').then((m) => ({ default: m.DelhiMap })), {
   ssr: false,
   loading: () => (
-    <div className="relative size-full overflow-hidden rounded-xl border border-hairline bg-[#070a11] flex items-center justify-center">
+    <div className="relative size-full overflow-hidden rounded-xl border border-hairline bg-[#E5E7EB] flex items-center justify-center">
       <span className="font-mono text-[0.65rem] tracking-widest text-muted-foreground/60 uppercase">Loading Delhi intelligence...</span>
     </div>
   ),

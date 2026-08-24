@@ -145,7 +145,12 @@ export function OverviewView() {
                     >
                       <span className="font-mono text-[0.6rem] text-muted-foreground w-4">{String(idx + 1).padStart(2, '0')}</span>
                       <span className="size-2 rounded-full shrink-0" style={{ background: band.hex }} aria-hidden />
-                      <span className="font-mono text-xs text-foreground flex-1 truncate">{gridId}</span>
+                      <span className="font-mono text-xs text-foreground flex flex-col min-w-0 flex-1">
+                        <span className="truncate">{gridId}</span>
+                        {typeof grid.area_name === 'string' && grid.area_name && (
+                          <span className="text-[0.6rem] font-sans text-muted-foreground truncate">{grid.area_name}</span>
+                        )}
+                      </span>
                       <span className="font-mono text-xs tabular-nums" style={{ color: band.hex }}>
                         {formatScore(score)}
                       </span>

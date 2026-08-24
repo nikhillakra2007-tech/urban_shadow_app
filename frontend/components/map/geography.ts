@@ -31,12 +31,12 @@ export const DELHI_VIEW = {
   bearing: 0,
 }
 
-/** Dark, key-free raster basemap split into geometry and labels. */
+/** Light, key-free neutral raster basemap (CARTO Positron) with labels. */
 export const BASEMAP = {
   base: [
-    'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png',
-    'https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png',
-    'https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png',
+    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+    'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+    'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
   ],
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
 }

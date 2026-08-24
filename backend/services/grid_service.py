@@ -48,6 +48,17 @@ class GridService:
         if "grid_id" in self.df.columns:
             self.df["grid_id"] = self.df["grid_id"].astype(str)
 
+        # Optional area/locality names (grid_id -> area_name), resolved once by
+        # scripts/build_area_names.py from OSM and cached as a CSV. Grids
+        # without a cached name get the neutral fallback string.
+        area_path = os.path.join(base, "data", "grid_area_names.csv")
+        area_names: dict[str, str] = {}
+        if os.path.exists(area_path):
+            area_df = pd.read_csv(area_path, dtype=str)
+            area_names = dict(zip(area_df["grid_id"], area_df["area_name"]))
+        self._area_names = area_names
+        self.df["area_name"] = self.df["grid_id"].map(area_names).fillna("Area unavailable")
+
         # uus_score is NOT in the raw CSV — compute it now using the model
         # (model itself is injected via set_model_service after init, or computed
         #  in init if passed in — see set_uus_scores method called from main.py)
@@ -104,7 +115,7 @@ class GridService:
 
     def get_all_grids(self, limit: int = 100, offset: int = 0) -> list[dict]:
         """Return a paginated list of grid summaries (key columns only)."""
-        cols = ["grid_id", "latitude", "longitude", "uus_score", "classification"]
+        cols = ["grid_id", "latitude", "longitude", "area_name", "uus_score", "classification"]
         available = [c for c in cols if c in self.df.columns]
         subset = self.df[available].iloc[offset : offset + limit]
         return [self._clean_record(r) for r in subset.to_dict(orient="records")]
@@ -144,6 +155,7 @@ class GridService:
                     "id": gid,
                     "properties": {
                         "grid_id": gid,
+                        "area_name": self._area_names.get(gid, "Area unavailable"),
                         "uus_score": None if uus is None or (isinstance(uus, float) and np.isnan(uus)) else round(float(uus), 2),
                         "classification": row.get("classification"),
                     },
@@ -172,6 +184,7 @@ class GridService:
                 "id": str(r["grid_id"]),
                 "properties": {
                     "grid_id": str(r["grid_id"]),
+                    "area_name": r.get("area_name"),
                     "uus_score": uus_val,
                     "classification": r.get("classification"),
                 },

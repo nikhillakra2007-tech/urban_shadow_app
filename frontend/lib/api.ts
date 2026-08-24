@@ -157,7 +157,7 @@ export function pickRecord(source: unknown, keys: string[]): Record<string, unkn
 export const GRID_ID_KEYS = ['grid_id', 'gridId', 'id', 'grid']
 export const SCORE_KEYS = ['uus_score', 'uus', 'score', 'uus_index', 'predicted_uus']
 export const CLASS_KEYS = ['classification', 'class', 'category', 'uus_class', 'label']
-export const PLACE_KEYS = ['locality', 'area', 'name', 'ward', 'district', 'zone', 'region']
+export const PLACE_KEYS = ['area_name', 'locality', 'area', 'name', 'ward', 'district', 'zone', 'region']
 
 export function gridIdOf(record: unknown): string | undefined {
   return pickString(record, GRID_ID_KEYS)
