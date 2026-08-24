@@ -30,6 +30,7 @@ origins = os.getenv(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://urban-shadow-frontend.onrender.com",
+        "https://urban-shadow-test.vercel.app",
     ]),
 ).split(",")
 
