@@ -1,42 +1,12 @@
-# ── Python ────────────────────────────────────────────────
 .venv/
-venv/
 __pycache__/
 *.pyc
-.pytest_cache/
-
-# ── Node / Next.js ────────────────────────────────────────
-node_modules/
-.next/
-*.tsbuildinfo
-next-env.d.ts.bak
-
-# ── Environment & secrets (never commit real values) ─────
 .env
-.env.*
-!.env.example
-**/.env
-**/.env.*
-!**/.env.example
-
-# ── Logs & runtime artifacts ──────────────────────────────
+data/models/
+*.egg-info/
+.pytest_cache/
 *.log
-server.pid
-uvicorn_out.log
-uvicorn_err.log
-next_out.log
-next_err.log
+*.pid
+urban_shadow_dump.sql
 
-# ── Large raw geospatial sources (kept locally / via Drive,
-#    not required to run the app - backend ships its own
-#    curated dataset in backend/data/) ─────────────────────
-/*.gpkg
-/*.pbf
-/*.geojson
-/*.csv
-/*.zip
-/*.png
-
-# ── OS noise ──────────────────────────────────────────────
-.DS_Store
-Thumbs.db
+data/raw/

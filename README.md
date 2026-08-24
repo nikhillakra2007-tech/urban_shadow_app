@@ -1,125 +1,124 @@
-# UUS Delhi — Urban Shadow
+# urban_shadow
 
-Grid-level urban usability / sustainability intelligence for Delhi NCR.
-A 500 m grid (6,284 cells) scored by a trained XGBoost model over 36 urban
-indicators (healthcare, education, transit, air quality, heat, vegetation,
-water, population …), served by FastAPI and visualised in a Next.js +
-MapLibre dashboard with what-if simulation and rule-based recommendations.
+FastAPI platform that scores every 500m × 500m grid cell of NCT Delhi for **urban usability**. Normalized schema: `urban_grid_master` (GRID hub) + **one table per metric group**, all linked by `grid_id`.
 
 ```
-DATA (backend/data/delhi_final_dataset.csv)
-   └─> FastAPI services (grid / analytics / simulation / recommendations)
-         └─> XGBoost model (backend/model/uus_model.pkl, 36 features)
-               └─> REST API (/api/*)
-                     └─> Next.js dashboard (map, rankings, analytics,
-                         compare, dossier, what-if simulator)
+urban_grid_master (GRID: grid_id, geom, latitude, longitude)
+├── heat              (lst_mean, lst_summer_mean)
+├── vegetation        (ndvi_mean, builtup_percentage, landcover_class)
+├── weather           (humidity, wind_speed, annual_rainfall, max_day_rainfall, max_monsoon_rainfall)
+├── terrain           (elevation_mean, elevation_min, elevation_max)
+├── air               (pm25, pm10, no2, o3)
+├── population        (population, population_density)
+├── night             (nightlight_mean)
+├── water             (water_occurrence, surface_water_occurrence)
+├── roads             (road_length_km, major_road_length_km, intersection_count)
+├── traffic           (traffic_signal_count)
+├── vehicles          (parking_count, fuel_station_count)
+├── walkability       (footway_length_km, cycleway_length_km, crossing_count, pedestrian_area_km2, steps_count)
+├── buildings         (building_count, building_area_km2)
+├── green             (park_area_km2)
+├── drainage          (drain_length_km)
+├── public_transport  (bus_stop_count, metro_station_count, transit_count)
+├── essential_services(hospital_count, school_count, pharmacy_count, police_count, public_toilet_count)
+├── commercial        (commercial_area_km2, industrial_area_km2, retail_area_km2)
+└── urban_scores      (heat_score ... urban_usability_score, usability_class)
 ```
 
-## Repository layout
+## Structure
 
 ```
-urban/
-├── backend/
-│   ├── main.py                  # FastAPI app + routes (/api/health, /api/overview,
-│   │                            #   /api/grids[/geojson|/{id}|/{id}/explanation],
-│   │                            #   /api/rankings, /api/analytics,
-│   │                            #   POST /api/ai-suggestions, POST /api/simulate)
-│   ├── schemas/api_models.py    # Pydantic request/response models
-│   ├── services/                # grid_service, model_service, analytics_service,
-│   │                            #   simulation_engine, recommendation_service
-│   ├── model/                   # uus_model.pkl (XGBRegressor) + feature_columns.json
-│   │                            #   (36 features — the inference contract)
-│   ├── data/delhi_final_dataset.csv   # 6,284 rows — the single source of truth
-│   └── requirements.txt
-├── frontend/                    # Next.js 16 App Router + TypeScript + Tailwind v4
-│   ├── app/                     # routes: / (map), /rankings, /analytics,
-│   │                            #   /compare, /reports, /settings
-│   ├── components/              # map (MapLibre), panel (dossier/simulator), views, ui
-│   ├── lib/                     # api.ts (single fetch point), types.ts, uus.ts,
-│   │                            #   hooks.ts (SWR), app-state.tsx
-│   └── package.json
-├── data/raw sources             # *.gpkg / *.tif-era OSM & satellite inputs kept
-│                                #   out of Git (large); curated dataset ships in backend/data
-├── render.yaml                  # Render blueprint (backend + frontend)
-├── .env.example                 # backend env template (names only)
-└── .gitignore
+urban_shadow/
+├── app/
+│   ├── main.py             # FastAPI app (auto-creates DB + tables on start)
+│   ├── config.py           # env-driven settings
+│   ├── database.py         # SQLAlchemy engine/session + PostGIS enable
+│   ├── models/
+│   │   ├── grid.py         # urban_grid_master (GRID hub)
+│   │   ├── groups.py       # 18 group tables
+│   │   └── score.py        # urban_scores
+│   ├── schemas/
+│   │   ├── score.py        # ScoreInput (flat feature vector), GridSummary
+│   │   └── bundle.py       # GridBundleOut (grid + all groups + scores)
+│   ├── api/
+│   │   ├── grids.py        # list / bundle / scores / geojson
+│   │   └── score.py        # ML predict + recompute
+│   ├── services/
+│   │   ├── grid_generator.py   # 500m grid from boundary
+│   │   ├── score_calculator.py # 11 scores from group tables
+│   │   └── pipeline.py         # grid -> score flow
+│   └── ml/
+│       ├── features.py     # training frame (joins all groups)
+│       ├── train.py        # regressor + classifier
+│       └── predict.py      # model inference
+├── scripts/
+│   ├── init_db.sql         # raw DDL (GRID + 18 groups + scores)
+│   ├── drop_old_schema.sql # removes previous schema versions
+│   └── grid_bundle_query.sql
+├── requirements.txt
+├── .env.example
 ```
 
-`grid_id` (e.g. `DEL_03263`) is the primary key linking every record; the CSV
-row set matches the original 500 m Delhi grid exactly.
+## Setup
 
-## Score & classification
+1. **PostgreSQL + PostGIS** — create the DB in pgAdmin4:
+   ```sql
+   CREATE DATABASE urban_shadow_v2;
+   ```
+   (PostGIS + all 20 tables are created automatically by the app on server start.)
 
-- `uus_score` = prediction of the delivered `XGBRegressor` (100 trees, depth 6).
-  The training script was not part of the handoff, so raw model outputs are
-  stretched **linearly** onto a **0–100 display scale**
-  (`(raw − min) / (max − min) × 100`) at startup. This preserves ranking order
-  and all relative differences exactly — only the displayed numbers change.
-- Classification tiers (`Critical / Low / Moderate / Good / Excellent`) use
-  equal quintiles of the 0–100 range — the same rule the frontend applies
-  (`frontend/lib/uus.ts -> bandForScore`).
+2. **Env** — copy `.env.example` to `.env` and fix `DATABASE_URL` with your pgAdmin4 credentials (DB name is `urban_shadow_v2`).
 
-## Run locally (PowerShell)
+3. **Install & run:**
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload
+   ```
 
-### Quick start (recommended)
+## Migrating from a previous schema version
 
-```powershell
-cd C:\Users\nikhi\OneDrive\Desktop\coding\urban
-powershell -ExecutionPolicy Bypass -File .\run_local.ps1
+If you still have an old `urban_grid_master` (flat 70-column table) or the v1 tables:
+1. Run `scripts/drop_old_schema.sql` in pgAdmin4 (drops them in dependency order).
+2. Restart the server → the app recreates the normalized schema automatically.
+
+## Generating the grid (needs the Delhi boundary first)
+
+Insert the **official NCT Delhi polygon** into a `delhi_boundary` table (geometry column `geom`, EPSG:4326), then:
+
+```bash
+python -m app.services.pipeline   # creates 500m grid rows + scores them
 ```
 
-This creates the venv on first run, starts backend + frontend, waits until both
-are healthy, and opens the browser at http://localhost:3000.
-Add `-Prod` for a production build/start instead of dev mode.
+## Training the ML model
 
-### 1. Backend
-
-```powershell
-cd backend
-python -m venv ..\.venv
-..\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-# Swagger: http://127.0.0.1:8000/docs
+```bash
+python -m app.ml.train
 ```
 
-> Requires **xgboost 2.x** (pinned in requirements.txt) — the shipped model
-> artifact cannot be deserialised by xgboost 3.x.
+- Trains a **RandomForestRegressor** (`urban_usability_score`) + **RandomForestClassifier** (`usability_class`).
+- Uses real DB rows; falls back to 3000 synthetic samples so it always runs.
+- Saves to `data/models/urban_score_regressor.joblib` + `urban_class_classifier.joblib`.
 
-### 2. Frontend
+## API
 
-```powershell
-cd frontend
-npm install
-copy .env.example .env.local      # defaults to http://localhost:8000
-npm run dev                       # http://localhost:3000
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/v1/grids` | list all grid cells (summary + class) |
+| `GET /api/v1/grids/{id}/bundle` | everything for one cell — all 18 groups + scores |
+| `GET /api/v1/grids/{id}/scores` | the 11 scores + usability class |
+| `GET /api/v1/grids/{id}/geojson` | cell geometry for the map |
+| `POST /api/v1/score/predict` | ML prediction from raw metrics |
+| `POST /api/v1/score/recompute/{id}` | recompute scores from group tables |
+| `GET /health` | server alive check |
+
+## Scoring model (weights)
+
 ```
+urban_usability_score =
+  0.15 heat + 0.10 walkability + 0.10 traffic + 0.10 flood + 0.10 air
+  + 0.10 accessibility + 0.10 transit + 0.10 services + 0.15 environment
 
-Production build instead of dev:
-
-```powershell
-npm run build
-npm run start
+usability_class:  High Usability (>=75) | Moderate (>=50) | Low (>=25) | Very Low
 ```
-
-## Deploy on Render
-
-The repo includes `render.yaml` (blueprint). Two web services are created:
-
-| Service     | Root dir  | Build                      | Start                                        | Health        |
-|-------------|-----------|----------------------------|----------------------------------------------|---------------|
-| backend     | `backend` | `pip install -r requirements.txt` | `uvicorn main:app --host 0.0.0.0 --port $PORT` | `/api/health` |
-| frontend    | `frontend`| `npm ci && npm run build`  | `npm run start`                              | `/`           |
-
-After creating the services set:
-
-1. Backend env `ALLOWED_ORIGINS` → your frontend URL (CORS).
-2. Frontend env `NEXT_PUBLIC_API_URL` → your backend URL.
-   (`NEXT_PUBLIC_*` is baked at build time — set it before the frontend build.)
-
-## Data provenance
-
-Raw OpenStreetMap extracts, satellite rasters and CPCB sensor data were
-aggregated per 500 m grid cell into `backend/data/delhi_final_dataset.csv`.
-The upstream GeoPackage/GeoJSON sources remain available out-of-repo for
-regeneration; no runtime component reads them.

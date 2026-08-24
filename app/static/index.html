@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Urban Shadow — Delhi Usability Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🌆</div>
+      <div>
+        <h1>Urban Shadow</h1>
+        <p>Delhi 500m Usability Atlas</p>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-btn active" data-view="map">🗺️ Heatmap</button>
+      <button class="nav-btn" data-view="explore">🔍 Explore</button>
+      <button class="nav-btn" data-view="compare">⚖️ Compare</button>
+      <button class="nav-btn" data-view="ml">🤖 ML Predict</button>
+      <button class="nav-btn" data-view="about">ℹ️ About</button>
+    </nav>
+
+    <!-- Global stats -->
+    <div id="app-status" class="app-status info" role="status" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span><span id="app-status-text">Connecting to Urban Shadow…</span>
+    </div>
+
+    <div class="stats" id="global-stats">
+      <div class="stat">
+        <span class="stat-label">Total Cells</span>
+        <span class="stat-value" id="st-total">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Scored</span>
+        <span class="stat-value" id="st-scored">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Avg Score</span>
+        <span class="stat-value" id="st-avg">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">High Usability</span>
+        <span class="stat-value" id="st-high">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Moderate</span>
+        <span class="stat-value" id="st-moderate">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Low</span>
+        <span class="stat-value" id="st-low">—</span>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-box-title">Class Distribution</div>
+      <canvas id="class-pie"></canvas>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="content">
+    <!-- ===== MAP VIEW ===== -->
+    <section id="view-map" class="view active">
+      <div class="map-toolbar">
+        <div class="legend" id="map-legend">
+          <span class="legend-title">Usability Score</span>
+          <div class="legend-bar"></div>
+          <div class="legend-labels"><span>20</span><span>40</span><span>60</span><span>80</span></div>
+        </div>
+        <input id="map-search" class="search-input" placeholder="Grid ID or 'lat,lng' → press Enter" />
+        <button id="map-export" class="btn ghost" title="Save current map view as PNG">📷 Export PNG</button>
+      </div>
+      <div id="map"><div id="map-status" class="map-status" role="status" aria-live="polite">Loading Delhi grid…</div></div>
+      <div id="cell-detail" class="cell-detail hidden">
+        <button id="cell-detail-close" class="close-btn">×</button>
+        <div id="cell-detail-content"></div>
+      </div>
+    </section>
+
+    <!-- ===== EXPLORE VIEW ===== -->
+    <section id="view-explore" class="view">
+      <div class="panel">
+        <h2>Explore a Grid Cell</h2>
+        <p class="muted">Enter a grid ID (1–6284) to inspect all 18 metric groups, the score breakdown, and the ML prediction for that cell.</p>
+        <div class="row">
+          <input id="explore-input" class="search-input grow" type="number" placeholder="e.g. 3263" min="1" />
+          <button id="explore-btn" class="btn primary">Load Cell</button>
+        </div>
+        <div id="explore-error" class="error hidden"></div>
+      </div>
+      <div id="explore-result" class="hidden"></div>
+    </section>
+
+    <!-- ===== COMPARE VIEW ===== -->
+    <section id="view-compare" class="view">
+      <div class="panel">
+        <h2>Compare Two Cells</h2>
+        <p class="muted">Pick two grid IDs and see their scores side-by-side with an overlaid radar chart.</p>
+        <div class="row">
+          <input id="cmp-a" class="search-input" type="number" placeholder="Cell A (e.g. 3263)" min="1" />
+          <input id="cmp-b" class="search-input" type="number" placeholder="Cell B (e.g. 781)" min="1" />
+          <button id="cmp-btn" class="btn primary">Compare</button>
+        </div>
+        <div id="cmp-error" class="error hidden"></div>
+      </div>
+      <div id="cmp-result" class="hidden"></div>
+    </section>
+
+    <!-- ===== ML VIEW ===== -->
+    <section id="view-ml" class="view">
+      <div class="panel">
+        <h2>ML Score Prediction</h2>
+        <p class="muted">Adjust the raw metrics for a hypothetical cell and the trained RandomForest model predicts its usability score and class.</p>
+        <div id="ml-form" class="ml-form"></div>
+        <div class="row">
+          <button id="ml-predict-btn" class="btn primary">Predict</button>
+          <button id="ml-reset-btn" class="btn ghost">Reset</button>
+        </div>
+        <div id="ml-result" class="hidden"></div>
+      </div>
+    </section>
+
+    <!-- ===== ABOUT VIEW ===== -->
+    <section id="view-about" class="view">
+      <div class="panel">
+        <h2>About Urban Shadow</h2>
+        <p class="muted">An urban-grid scoring platform for NCT Delhi built on a 500m × 500m grid of <strong>6,284 cells</strong>. Each cell aggregates 18 geospatial metric groups and produces 11 normalized scores.</p>
+        <h3>Score Composition (weights)</h3>
+        <ul class="weight-list">
+          <li><span>Heat</span> <b>15%</b></li>
+          <li><span>Environment (NDVI + parks)</span> <b>15%</b></li>
+          <li><span>Walkability</span> <b>10%</b></li>
+          <li><span>Traffic</span> <b>10%</b></li>
+          <li><span>Flood Risk</span> <b>10%</b></li>
+          <li><span>Air Quality</span> <b>10%</b></li>
+          <li><span>Accessibility</span> <b>10%</b></li>
+          <li><span>Transit</span> <b>10%</b></li>
+          <li><span>Services</span> <b>10%</b></li>
+        </ul>
+        <h3>Usability Classes</h3>
+        <div class="class-row">
+          <span class="class-chip" style="background:#1a9850">High ≥ 75</span>
+          <span class="class-chip" style="background:#91cf60">Moderate ≥ 50</span>
+          <span class="class-chip" style="background:#fc8d59">Low ≥ 25</span>
+          <span class="class-chip" style="background:#d73027">Very Low < 25</span>
+        </div>
+        <h3>Data Sources</h3>
+        <p class="muted">Landsat LST, Sentinel-2 NDVI, WorldPop, OpenStreetMap (roads, buildings, services, transit), PM2.5/PM10 stations, WorldCover, and more — imported from the project's Google Drive dataset.</p>
+        <p class="muted">API docs: <a href="/docs" target="_blank">/docs</a></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/static/vendor/leaflet/leaflet.min.js"></script>
+<script src="/static/vendor/chart/chart.umd.min.js"></script>
+<script src="/static/vendor/html2canvas.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
