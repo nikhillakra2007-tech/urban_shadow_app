@@ -10,3 +10,11 @@ data/models/
 urban_shadow_dump.sql
 
 data/raw/
+
+delhi_buildings.gpkg
+delhi_roads.gpkg
+uus_delhi.zip
+
+delhi_buildings.gpkg
+delhi_roads.gpkg
+uus_delhi.zip
