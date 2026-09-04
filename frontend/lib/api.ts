@@ -30,13 +30,21 @@ export const API_URL = (
 export class ApiError extends Error {
   status: number
   url: string
-  constructor(message: string, status: number, url: string) {
+  isColdStart: boolean
+  constructor(message: string, status: number, url: string, isColdStart = false) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.url = url
+    this.isColdStart = isColdStart
   }
 }
+
+/** Maximum time (ms) to wait for a single fetch before aborting. */
+const REQUEST_TIMEOUT_MS = 45_000
+
+/** Number of automatic retries for network failures (cold starts). */
+const MAX_RETRIES = 2
 
 async function request<T>(path: string, init?: RequestInit & { query?: Record<string, string | number | undefined> }): Promise<T> {
   const { query, ...rest } = init ?? {}
@@ -47,38 +55,67 @@ async function request<T>(path: string, init?: RequestInit & { query?: Record<st
     }
   }
 
-  let response: Response
-  try {
-    response = await fetch(url.toString(), {
-      ...rest,
-      headers: {
-        Accept: 'application/json',
-        ...(rest.body ? { 'Content-Type': 'application/json' } : {}),
-        ...rest.headers,
-      },
-      cache: 'no-store',
-    })
-  } catch (error) {
-    console.log('[v0] API network failure:', url.toString(), error)
-    throw new ApiError(
-      `Cannot reach the UUS API at ${API_URL}. Is the FastAPI backend running?`,
-      0,
-      url.toString(),
-    )
-  }
+  let lastError: Error | null = null
 
-  if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
     try {
-      const body = (await response.json()) as { detail?: string; message?: string }
-      detail = body?.detail ?? body?.message ?? detail
-    } catch {
-      /* non-JSON error body */
+      const response = await fetch(url.toString(), {
+        ...rest,
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(rest.body ? { 'Content-Type': 'application/json' } : {}),
+          ...rest.headers,
+        },
+        cache: 'no-store',
+      })
+
+      clearTimeout(timeout)
+
+      if (!response.ok) {
+        let detail = `${response.status} ${response.statusText}`
+        try {
+          const body = (await response.json()) as { detail?: string; message?: string }
+          detail = body?.detail ?? body?.message ?? detail
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new ApiError(detail, response.status, url.toString())
+      }
+
+      return (await response.json()) as T
+    } catch (error) {
+      clearTimeout(timeout)
+
+      // Don't retry non-network errors (4xx, 5xx from the server)
+      if (error instanceof ApiError && error.status > 0) throw error
+
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      // Wait before retrying (exponential backoff: 2s, 4s)
+      if (attempt < MAX_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 2000))
+      }
     }
-    throw new ApiError(detail, response.status, url.toString())
   }
 
-  return (await response.json()) as T
+  // All retries exhausted
+  const isColdStart = lastError?.name === 'AbortError' ||
+    lastError?.message?.includes('fetch') ||
+    lastError?.message?.includes('network') ||
+    lastError?.message?.includes('Failed')
+
+  throw new ApiError(
+    isColdStart
+      ? `The UUS API is waking up from a cold start. Please wait a moment and retry. (${API_URL})`
+      : `Cannot reach the UUS API at ${API_URL}. Is the FastAPI backend running?`,
+    0,
+    url.toString(),
+    isColdStart,
+  )
 }
 
 export const api = {

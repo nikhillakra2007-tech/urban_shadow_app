@@ -10,7 +10,7 @@
  */
 import { type ExpressionSpecification, type FilterSpecification, type GeoJSONSource, Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl'
 import type * as MapLibreNS from 'maplibre-gl'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { pickString } from '@/lib/api'
@@ -20,6 +20,8 @@ import type { GridFeature } from '@/lib/types'
 import { BANDS, colorStops, formatScore, humanizeFeature, resolveBand } from '@/lib/uus'
 import { ApiOfflineNotice } from '@/components/api-offline-notice'
 import { MapControls } from './map-controls'
+import { MapHeaderOverlay } from './map-header-overlay'
+import { MapHoverTooltip, type HoverInfo } from './map-hover-tooltip'
 import { MapLegend } from './map-legend'
 import { BASEMAP, DELHI_VIEW } from './geography'
 
@@ -45,14 +47,7 @@ function loadMaplibre(): Promise<typeof MapLibreNS> {
   return maplibreLoadPromise
 }
 
-interface HoverInfo {
-  x: number
-  y: number
-  gridId?: string
-  score?: number
-  classification?: string
-  place?: string
-}
+// HoverInfo type is imported from './map-hover-tooltip'
 
 function baseStyle(): StyleSpecification {
   return {
@@ -398,17 +393,7 @@ export function DelhiMap() {
       <div ref={containerRef} className="size-full" role="application" aria-label="Delhi UUS intelligence map" />
 
       {/* map title */}
-      <div className="pointer-events-none absolute top-3 left-3 z-10 flex flex-col gap-1">
-        <span className="text-mono-label text-primary/80">Delhi NCR · Spatial Intelligence</span>
-        <span className="text-sm font-medium text-slate-800">
-          {activeLayer === 'uus_score' ? 'UUS Score' : humanizeFeature(activeLayer)}
-          {geojson?.features?.length ? (
-            <span className="ml-2 font-mono text-[0.7rem] text-slate-500">
-              {geojson.features.length.toLocaleString('en-IN')} grids
-            </span>
-          ) : null}
-        </span>
-      </div>
+      <MapHeaderOverlay activeLayer={activeLayer} gridCount={geojson?.features?.length} />
 
       <MapControls
         onZoomIn={() => mapRef.current?.zoomIn({ duration: 300 })}
@@ -436,31 +421,7 @@ export function DelhiMap() {
       />
 
       {/* hover tooltip */}
-      <AnimatePresence>
-        {hover && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.12 }}
-            style={{ left: hover.x + 16, top: hover.y + 16 }}
-            className="glass pointer-events-none absolute z-20 min-w-[9.5rem] rounded-lg p-3 shadow-2xl shadow-black/60"
-          >
-            <div className="text-mono-label text-muted-foreground">Grid</div>
-            <div className="font-mono text-xs text-foreground">{hover.gridId ?? '—'}</div>
-            <div className="mt-2 text-mono-label text-muted-foreground">UUS</div>
-            <div className="font-mono text-lg leading-none font-semibold tabular-nums" style={{ color: hoverBand.hex }}>
-              {formatScore(hover.score)}
-            </div>
-            {hover.classification && (
-              <div className="mt-1.5 text-mono-label" style={{ color: hoverBand.hex }}>
-                {hover.classification}
-              </div>
-            )}
-            {hover.place && <div className="mt-1.5 text-[0.7rem] text-muted-foreground">{hover.place}</div>}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <MapHoverTooltip hover={hover} band={hoverBand} />
 
       {/* loading */}
       {isLoading && !error && (

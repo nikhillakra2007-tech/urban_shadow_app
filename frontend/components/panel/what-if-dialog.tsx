@@ -9,12 +9,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
-import { Slider } from '@/components/ui/slider'
 import { Spinner } from '@/components/ui/spinner'
 import { api, pickArray, pickNumber, pickString } from '@/lib/api'
 import type { GridRecord, SimulateResponse } from '@/lib/types'
 import { extractIndicators, formatScore, resolveBand } from '@/lib/uus'
 import { cn } from '@/lib/utils'
+import { WhatIfSliderItem } from './what-if-slider-item'
 
 interface WhatIfDialogProps {
   gridId: string
@@ -25,15 +25,6 @@ interface WhatIfDialogProps {
   trigger: ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void
-}
-
-function sliderBounds(value: number) {
-  if (value === 0) return { lo: 0, hi: 1, step: 0.01 }
-  const magnitude = Math.abs(value)
-  const lo = value > 0 ? 0 : value * 1.5
-  const hi = value > 0 ? value * 1.5 : Math.abs(value) * 0.5
-  const step = magnitude > 100 ? 1 : magnitude > 10 ? 0.1 : 0.01
-  return { lo: Number(lo.toFixed(4)), hi: Number(hi.toFixed(4)), step }
 }
 
 export function WhatIfDialog({ gridId, grid, baselineScore, min, max, trigger, open, onOpenChange }: WhatIfDialogProps) {
@@ -95,37 +86,18 @@ export function WhatIfDialog({ gridId, grid, baselineScore, min, max, trigger, o
         ) : (
           <div className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              {indicators.slice(0, 10).map((indicator) => {
-                const bounds = sliderBounds(indicator.value)
-                const value = changes[indicator.key] ?? indicator.value
-                const changed = changes[indicator.key] !== undefined
-                return (
-                  <div key={indicator.key} className="flex flex-col gap-2 rounded-lg border border-hairline bg-surface/50 p-3">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <label htmlFor={`slider-${indicator.key}`} className="truncate text-xs text-muted-foreground">
-                        {indicator.label}
-                      </label>
-                      <span className={cn('font-mono text-xs tabular-nums', changed ? 'text-primary' : 'text-foreground')}>
-                        {formatScore(value, bounds.step < 0.1 ? 2 : 1)}
-                      </span>
-                    </div>
-                    <Slider
-                      id={`slider-${indicator.key}`}
-                      min={bounds.lo}
-                      max={bounds.hi}
-                      step={bounds.step}
-                      value={[value]}
-                      onValueChange={(next) => {
-                        const nextValue = Array.isArray(next) ? next[0] : next
-                        setChanges((current) => ({ ...current, [indicator.key]: nextValue }))
-                      }}
-                    />
-                    <span className="font-mono text-[0.6rem] text-muted-foreground tabular-nums">
-                      baseline {formatScore(indicator.value, 2)}
-                    </span>
-                  </div>
-                )
-              })}
+              {indicators.slice(0, 10).map((indicator) => (
+                <WhatIfSliderItem
+                  key={indicator.key}
+                  indicatorKey={indicator.key}
+                  label={indicator.label}
+                  baseline={indicator.value}
+                  value={changes[indicator.key] ?? indicator.value}
+                  onChange={(nextValue) =>
+                    setChanges((current) => ({ ...current, [indicator.key]: nextValue }))
+                  }
+                />
+              ))}
             </div>
 
             {indicators.length > 10 && (

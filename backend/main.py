@@ -39,6 +39,7 @@ origins = [origin.strip().rstrip("/") for origin in origins if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,6 +69,23 @@ ans = AnalyticsService(gs) if gs is not None else None
 rec = RecommendationService(gs, ms) if (gs is not None and ms is not None) else None
 
 
+# ── Root ─────────────────────────────────────────────────────────────────────
+@app.get(
+    "/",
+    summary="Root — platform info",
+    description="Returns the API name, version, and links to documentation.",
+    tags=["System"],
+)
+def root():
+    return {
+        "name": "UUS Delhi Intelligence API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health",
+        "status": "ok" if (_model_error is None and _data_error is None) else "degraded",
+    }
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.get(
     "/api/health",
@@ -75,6 +93,7 @@ rec = RecommendationService(gs, ms) if (gs is not None and ms is not None) else 
     description="Returns operational status. model_loaded and dataset_loaded reflect actual state.",
     tags=["System"],
 )
+@app.get("/health", include_in_schema=False)
 def health():
     return {
         "status": "ok" if (_model_error is None and _data_error is None) else "degraded",
